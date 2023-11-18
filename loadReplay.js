@@ -90,8 +90,9 @@ function loadReplay(){ return new Promise((resolve) => {
     resolve({'replayData':replayData,
              //'replayStartTime':replayStartTime,
              'replayTimeSum':replayTimeSum,
-             'music-src':sp + 'audio.mp3',
-             'bg-src':sp + 'marshmary.jpg'});
+             'folder-src':sp,
+             'bg-src':sp + 'marshmary.jpg',
+             'map-src': sp + 'MIMI feat. Hatsune Miku - Marshmary (Log Off Now) [Horizon].osu'});
     });
     });
     });

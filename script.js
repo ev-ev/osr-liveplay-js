@@ -8,6 +8,16 @@ var replayData = []; //TimeMS x y keypressed
 var replayIdx = 0;
 var replayStartTime = 0;
 var replayTimeSum = 0;
+var songStart;
+
+var mapHit = [];
+var mapHitIdx = 0;
+var mapIn = [];
+var mapOD3 = 80;
+var mapOD1 = 140;
+var mapOD5 = 200;
+var mapARpreempt = 1200;
+var mapARfull = 800;
 
 var assets = {};
 
@@ -42,17 +52,38 @@ function setup(){
     initSounds();
     
     loadImage('skins/yugen/cursor@2x.png').then(cursorImage => { assets['cursorImage'] = cursorImage;
+    loadImage('skins/yugen/hitcircle@2x.png').then(hitCircleImage => { assets['hitCircle'] = hitCircleImage;
+    loadImage('skins/yugen/hitcircleoverlay@2x.png').then(hitCircleOverlayImage => { assets['hitCircleOverlay'] = hitCircleOverlayImage;
     loadReplay().then(replayValues => {
     replayData = replayValues['replayData'];
     replayTimeSum = replayValues['replayTimeSum'];
+    songStart = -replayTimeSum;
     loadImage(replayValues['bg-src']).then(backgroundImage => {assets['backgroundImage'] = backgroundImage;
-    loadSong(replayValues['music-src']).then(()=>{
+    loadMap(replayValues['map-src']).then(mapValues => { console.log(mapValues);
+    mapHit = mapValues['HitObjects'].map(e=>[Number(e[0]),Number(e[1]),Number(e[2]),Number(e[3]),Number(e[4]),e[5],e[6]]);
+    mapOD3 = 80 - 6 * mapValues['Difficulty']['OverallDifficulty'];
+    mapOD1 = 140 - 8 * mapValues['Difficulty']['OverallDifficulty'];
+    mapOD5 = 200 - 10 * mapValues['Difficulty']['OverallDifficulty'];
+    var mapAR = Number(mapValues['Difficulty']['ApproachRate']);
+    if (mapAR <= 5){
+        mapARpreempt = 1200 + 600 * (5 - mapAR) / 5;
+        mapARfull = 800 + 400 * (5 - mapAR) / 5;
+    } else {
+        mapARpreempt = 1200 - 750 * (mapAR - 5) / 5;
+        mapARfull = 800 - 500 * (mapAR - 5) / 5;
+    }
+    var songPath = replayValues['folder-src']+mapValues['General']['AudioFilename'];
+    loadSong(songPath).then(()=>{
     console.log(audioBuffers);
     
-    replayStartTime = Date.now() - replayTimeSum; //Adjust time to now
-    console.log(-replayTimeSum);
-    playDeferred(audioBuffers[replayValues['music-src']],-replayTimeSum*2);
-    ready = 1; //Start
+    
+    //Commence replay
+    replayStartTime = Date.now(); //Adjust time to now
+    playDeferred(audioBuffers[songPath],songStart); //Song starts at -replayTimeSun (I hope)
+    ready = 1;
+    });
+    });
+    });
     });
     });
     });
@@ -64,12 +95,20 @@ function setup(){
     
 }
 
+function scaleX(x){ return ( (x) / 512 ) * w; } //or 512x384 idk
+function scaleY(y){ return ( (y) / 384 ) * h; }
 
 function drawCursor(x, y) {
-    function scaleX(x){ return ( (x) / 512 ) * w; }
-    function scaleY(y){ return ( (y) / 384 ) * h; }
     //console.log(scaleX(x),scaleY(y));
     c.drawImage(assets['cursorImage'], scaleX(x) - CURSORSZ / 2, scaleY(y) - CURSORSZ / 2,CURSORSZ,CURSORSZ);
+}
+
+function drawHitCircle(x, y, opacity){
+    HITCIRCLESZ = 70;
+    c.globalAlpha = opacity;
+    c.drawImage(assets['hitCircle'], scaleX(x) - HITCIRCLESZ / 2, scaleY(y) - HITCIRCLESZ / 2,HITCIRCLESZ,HITCIRCLESZ);
+    c.drawImage(assets['hitCircleOverlay'], scaleX(x) - HITCIRCLESZ / 2, scaleY(y) - HITCIRCLESZ / 2,HITCIRCLESZ,HITCIRCLESZ);
+    c.globalAlpha = 1;
 }
 
 function render() {
@@ -79,12 +118,39 @@ function render() {
     c.fillStyle = 'rgba(195, 195, 195, 0.7)'
     c.fillText(displayText,10,10);
     
+    ctime = Date.now() - replayStartTime;
+    adjtime = ctime - songStart;
     
     if ((replayData.length !== 0) && (replayIdx < replayData.length - 1) && ready){
-        if (Date.now() - replayStartTime > replayTimeSum) {
+        //Hitobjects render
+        if (adjtime > mapHit[mapHitIdx][2] - mapARpreempt){
+            mapIn.push(mapHit[mapHitIdx]); //Add to list of activly drawn
+            mapHitIdx += 1;
+        }
+        var i = 0;
+        while (mapIn.length > 0){ //x,y,time,type
+            if (adjtime > mapIn[i][2] + mapOD5){mapIn.splice(i,1); if(i>=mapIn.length){break;} continue;} //THIS IS CORRECT CODE
+            //if (adjtime > mapIn[i][2]){mapIn.pop(i); i += 1; if(i>=mapIn.length){break;} continue;} //THIS CODE IS WRONG TODO when judgements
+            if (mapIn[i][3]&1 !== 0 || 1) { // Hitobject
+                var opacity = 1;
+                if (adjtime < (mapIn[i][2] - mapARfull)){
+                    opacity = adjtime/(mapARpreempt-mapARfull)+(mapIn[i][2]-mapARpreempt)/(mapARfull-mapARpreempt);
+                } else {
+                    opacity = 1;
+                }
+                drawHitCircle(mapIn[i][0],mapIn[i][1],opacity); //LAST PARAM IS OPACITY !
+            }
+            i += 1;
+            if (i >= mapIn.length){
+                break;
+            }
+        }
+            
+        //Cursor render
+        if (ctime > replayTimeSum) {
             drawCursor(replayData[replayIdx][1],replayData[replayIdx][2]);
             var i = 0;
-            while ((Date.now() - replayStartTime > replayTimeSum) && (replayIdx < replayData.length - 1)) {
+            while ((ctime > replayTimeSum) && (replayIdx < replayData.length - 1)) {
                 replayTimeSum += abs(replayData[replayIdx][0]);
                 replayIdx += 1;
                 i += 1;
