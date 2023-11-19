@@ -2,6 +2,7 @@ var abs=Math.abs;
 var ready=0;
 var CURSORSZ = 70;
 var ACSZ = 4;
+var COMBONUMSZ = 0.78;
 
 var playfieldScale = 1;
 var playfieldTransformX = 0;
@@ -14,6 +15,7 @@ var replayIdx = 0;
 var replayStartTime = 0;
 var replayTimeSum = 0;
 var replayCombo = -1;
+var currentCombo = 0;
 var songStart;
 
 var mapHit = [];
@@ -25,6 +27,8 @@ var mapOD5 = 200;
 var mapCSr = 54.4;
 var mapARpreempt = 1200;
 var mapARfull = 800;
+var combosizeX = 1;
+var combosizeY = 1;
 var comboColorCount = 1;
 
 var assets = {};
@@ -67,10 +71,7 @@ function setup(){
     
     initSounds();
     
-    loadImage('skins/yugen/cursor@2x.png').then(cursorImage => { assets['cursorImage'] = cursorImage;
-    loadImage('skins/yugen/hitcircle@2x.png').then(hitCircleImage => { assets['hitCircle'] = hitCircleImage;
-    loadImage('skins/yugen/hitcircleoverlay@2x.png').then(hitCircleOverlayImage => { assets['hitCircleOverlay'] = hitCircleOverlayImage;
-    loadImage('skins/yugen/approachcircle.png').then(approachCircleImage => { assets['approachCircle'] = approachCircleImage;
+    loadSkin('skins/yugen').then(skinAssets=>{ assets = skinAssets;
     loadReplay().then(replayValues => {
     replayData = replayValues['replayData'];
     replayTimeSum = replayValues['replayTimeSum'];
@@ -97,10 +98,12 @@ function setup(){
             comboColors[Number(key.slice(5))-1] = 'rgba('+mapValues['Colours'][key]+', 1.0)';
         }
     }
+    combosizeX = mapCSr*(assets['default0'].width/assets['hitCircle'].width) * COMBONUMSZ; //Precalculate commbo number size
+    combosizeY = mapCSr*(assets['default0'].height/assets['hitCircle'].height) * COMBONUMSZ; //TODO I am assuming all are same size !
     comboColorCount = comboColors.length;
     promises = [];
     for (var i = 0; i < comboColors.length; i++) {
-        promises.push(tintImage(hitCircleImage, comboColors[i]));
+        promises.push(tintImage(assets['hitCircle'], comboColors[i]));
     }
     //console.log(promises);
     Promise.all(promises).then(comboColorResults => {
@@ -117,9 +120,6 @@ function setup(){
     replayStartTime = Date.now(); //Adjust time to now
     playDeferred(audioBuffers[songPath],songStart); //Song starts at -replayTimeSun (I hope)
     ready = 1;
-    });
-    });
-    });
     });
     });
     });
@@ -143,7 +143,7 @@ function drawCursor(x, y) {
     c.drawImage(assets['cursorImage'], renderX(x) - CURSORSZ / 2, renderY(y) - CURSORSZ / 2,CURSORSZ,CURSORSZ);
 }
 
-function drawHitCircle(x, y, image, opacity, current, timing){
+function drawHitCircle(x, y, combo, opacity, current, timing){
     var posX = renderX(x) - mapCSr / 2;
     var posY = renderY(y) - mapCSr / 2;
     c.globalAlpha = opacity;
@@ -154,6 +154,18 @@ function drawHitCircle(x, y, image, opacity, current, timing){
     }
     c.drawImage(assets['hitCircle'], posX, posY, mapCSr, mapCSr);
     c.drawImage(assets['hitCircleOverlay'], posX, posY, mapCSr, mapCSr);
+    if (combo < 10) {
+        c.drawImage(assets['default'+combo], renderX(x) - combosizeX/2, renderY(y)-combosizeY/2, combosizeX, combosizeY);
+    } else {
+        combo = "" + combo;
+        var totalLength = combo.length*(combosizeX - assets['skinIni']['Fonts']['ComboOverlap']) + assets['skinIni']['Fonts']['ComboOverlap'];
+        for (var i = 0; i < combo.length; i++) {
+            //max length = number*(length - overlap) + overlap
+            c.drawImage(assets['default'+combo[i]], renderX(x) - combosizeX/2 + (totalLength / combo.length) * i - totalLength/3, renderY(y) - combosizeY/2, combosizeX, combosizeY);
+        }
+        
+    }
+
     c.globalAlpha = 1;
 }
 
@@ -171,6 +183,10 @@ function render() {
         //Hitobjects render
         if (mapHitIdx < mapHit.length){
             if (adjtime > mapHit[mapHitIdx][2] - mapARpreempt){
+                if (mapHit[mapHitIdx][3]&0b100){ //New combo
+                    currentCombo = 1;
+                }
+                mapHit[mapHitIdx].push(currentCombo); currentCombo += 1;
                 mapIn.push(mapHit[mapHitIdx]); //Add to list of activly drawn
                 mapHitIdx += 1;
             }
@@ -180,9 +196,10 @@ function render() {
         while (mapIn.length > 0){ //x,y,time,type
             //if (adjtime > mapIn[i][2] + mapOD5){mapIn.splice(i,1); if(i>=mapIn.length){break;} continue;} //THIS IS CORRECT CODE
             if (adjtime > mapIn[i][2]+25){mapIn.splice(i,1); if(i>=mapIn.length){break;} continue;} //THIS CODE IS WRONG TODO when judgements
-            if (mapIn[i][3]&0b100) { //New combo
-                replayCombo += 1;
-            }
+            //if (mapIn[i][3]&0b100) { //New combo
+            //    replayCombo += 1; //This straight up won't work TODO
+            //    currentCombo = 1;
+            //}
             if (mapIn[i][3]&1 !== 0 || 1) { // Hitobject
                 var opacity = 1;
                 var approach = 1;
@@ -191,7 +208,7 @@ function render() {
                 } else {
                     opacity = 1;
                 }
-                drawHitCircle(mapIn[i][0],mapIn[i][1], assets['hitCircle'+replayCombo%comboColorCount], opacity, adjtime, mapIn[i][2]);
+                drawHitCircle(mapIn[i][0],mapIn[i][1], mapIn[i][7], opacity, adjtime, mapIn[i][2]);
             }
             i += 1;
             if (i >= mapIn.length){
