@@ -32,7 +32,11 @@ function loadSkin(src){ return new Promise((resolve, reject) => {
     loadImage(src+'/default-7@2x.png').then(default7Image => { assets['default7'] = default7Image;
     loadImage(src+'/default-8@2x.png').then(default8Image => { assets['default8'] = default8Image;
     loadImage(src+'/default-9@2x.png').then(default9Image => { assets['default9'] = default9Image;
+    loadImage(src+'/sliderb0@2x.png').then(sliderBallImage => { assets['sliderBall'] = sliderBallImage;
+    loadImage(src+'/reversearrow@2x.png').then(reverseArrowImage => { assets['reverseArrow'] = reverseArrowImage;
     resolve(assets);
+    });
+    });
     });
     });
     });

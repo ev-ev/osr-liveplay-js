@@ -1,6 +1,8 @@
 var abs=Math.abs;
 var pow=Math.pow;
 var arctan=Math.atan;
+var floor=Math.floor;
+var ceil=Math.ceil;
 var pi = Math.PI;
 var ready=0;
 var CURSORSZ = 70;
@@ -9,6 +11,7 @@ var SLIDERBODYBASEOPACITY = 0.5;
 var SLIDERBORDERSIZE = 5;
 var SLIDERSZ = -7; //How much smaller slider elements should be offset than map circle size radius
 var COMBONUMSZ = 0.78;
+var FADEOUTTIME = 200;
 
 var playfieldScale = 1;
 var playfieldTransformX = 0;
@@ -30,9 +33,10 @@ var songStart;
 var mapHit = [];
 var mapHitIdx = 0;
 var mapIn = [];
+var mapSliderTickRate = 0;
 var mapOD3 = 80;
 var mapOD1 = 140;
-var mapOD5 = 200;
+var mapOD5 = 0; //SHOULD BE 200 TODO. Once I implement judgements I will patch this hotfix out
 var mapCSr = 54.4;
 var mapSliderMul = 100;
 var mapARpreempt = 1200;
@@ -99,6 +103,7 @@ function setup(){
         alert(e); 
     }
     });
+    sliderTickRate = mapValues['Difficulty']['SliderTickRate'];
     //mapHit = mapValues['HitObjects'];
     mapOD3 = 80 - 6 * mapValues['Difficulty']['OverallDifficulty'];
     mapOD1 = 140 - 8 * mapValues['Difficulty']['OverallDifficulty'];
@@ -115,12 +120,15 @@ function setup(){
         mapARpreempt = 1200 - 750 * (mapAR - 5) / 5;
         mapARfull = 800 - 500 * (mapAR - 5) / 5;
     }
+    FADEOUTTIME = (mapARpreempt-mapARfull) / 2;
     var comboColors = [];
     for (var key in mapValues['Colours']){
         if (key.slice(0,5) === "Combo"){
             comboColors[Number(key.slice(5))-1] = 'rgba('+mapValues['Colours'][key]+', 1.0)';
         }
     }
+    sliderBallsizeX = mapCSr*(assets['sliderBall'].width/assets['hitCircle'].width);
+    sliderBallsizeY = mapCSr*(assets['sliderBall'].height/assets['hitCircle'].width);
     combosizeX = mapCSr*(assets['default0'].width/assets['hitCircle'].width) * COMBONUMSZ; //Precalculate commbo number size
     combosizeY = mapCSr*(assets['default0'].height/assets['hitCircle'].height) * COMBONUMSZ; //TODO I am assuming all are same size !
     comboColorCount = comboColors.length;
@@ -171,20 +179,32 @@ function drawCursor(x, y) {
     c.drawImage(assets['cursorImage'], renderX(x) - CURSORSZ / 2, renderY(y) - CURSORSZ / 2,CURSORSZ,CURSORSZ);
 }
 
-function drawSlider(x, y, combo, opacity, current, timing, curveType, curvePoints, slides, length){
+function drawSlider(x, y, combo, opacity, current, timing, curveType, curvePoints, slides, length, duration, beatLength){
+    var slidesDone;
+    if (current-timing < 0){
+        slidesDone = 0;
+    } else {
+        slidesDone = floor((current-timing)/duration);
+    }
+    
+    
     if (curveType === "L"){
         c.beginPath();
         var start = [renderX(x),renderY(y)]
         var end = [renderX(curvePoints.slice(-1)[0][0]),renderY(curvePoints.slice(-1)[0][1])];
+        var clength = pow(pow((end[0]-start[0]),2)+pow((end[1]-start[1]),2),0.5);
+        if (clength<length*playfieldScale){
+            c.lineTo(((end[0]-start[0])/clength)*length*playfieldScale+start[0],((end[1]-start[1])/clength)*length*playfieldScale+start[1]);
+            clength = length*playfieldScale;
+        }
         c.moveTo(start[0], start[1]);
         c.lineTo(end[0],end[1]);
-        var clength = pow(pow((end[0]-start[0]),2)+pow((end[1]-start[1]),2),0.5);
-        if (clength<length){
-            c.lineTo((end[0]-start[0])/clength*length,(end[1]-start[1])/clength*length);
-        } else {length = clength;}
         c.lineCap = "round";   
         c.lineWidth = SLIDERSZ - SLIDERBORDERSIZE;
-        c.strokeStyle = 'rgba('+assets['skinIni']['Colours']['SliderTrackOverride']+','+SLIDERBODYBASEOPACITY*opacity+')';
+        //if (slides > 1) {
+        //    c.strokeStyle = 'rgba(200,100,200,0.7)'
+        //} else {
+        c.strokeStyle = 'rgba('+assets['skinIni']['Colours']['SliderTrackOverride']+','+SLIDERBODYBASEOPACITY*opacity+')';//}
         c.stroke();
         c.closePath();
         
@@ -198,8 +218,8 @@ function drawSlider(x, y, combo, opacity, current, timing, curveType, curvePoint
         }
         c.beginPath();
         c.moveTo(-SLIDERSZ / 2, 0);
-        c.lineTo(-SLIDERSZ / 2, length*playfieldScale);
-        c.arc   ( 0, length*playfieldScale, SLIDERSZ / 2, pi, 0, true);
+        c.lineTo(-SLIDERSZ / 2, clength);
+        c.arc   ( 0, clength, SLIDERSZ / 2, pi, 0, true);
         //c.moveTo( SLIDERSZ / 2, length*playfieldScale);
         c.lineTo( SLIDERSZ / 2, 0);
         c.arc   ( 0, 0, SLIDERSZ / 2, 0, pi, true);
@@ -210,24 +230,87 @@ function drawSlider(x, y, combo, opacity, current, timing, curveType, curvePoint
         //c.strokeRect(-SLIDERSZ / 2,0,SLIDERSZ,length*playfieldScale);
         c.stroke();
         c.closePath();
+        
+        
+        
+        //console.log(slidesDone);
+        if (slidesDone%2 === 0){
+            c.translate(0,clength);
+            c.rotate(-pi/2);
+        } else {
+            c.rotate(pi/2);
+        }
+        
+        //Draw sliderend (if any)
+        //1 slide is duration long. current-timing is elapsed time. (current-timing)/duration is amount of slides gone thru.
+        //therefore, amount of slides left is slides-(current-timing)/duration. But current-timing must be gt 0
+        if (current < timing){
+            if (slides > 1) {
+                c.globalAlpha = opacity;
+                c.drawImage(assets['reverseArrow'], -mapCSr/2, -mapCSr/2, mapCSr, mapCSr);
+                c.globalAlpha = 1;
+            }
+        } else {
+            if (slides - slidesDone > 1) {
+                c.globalAlpha = opacity;
+                c.drawImage(assets['reverseArrow'], -mapCSr/2, -mapCSr/2, mapCSr, mapCSr);
+                c.globalAlpha = 1;
+            }
+            if ((slides - slidesDone > 2)) { //TODO, I can't test this right now, but im pretty sure this will render it when it isnt supposed to be
+                c.globalAlpha = opacity;
+                c.drawImage(assets['reverseArrow'], -mapCSr/2, -mapCSr/2, mapCSr, mapCSr);
+                c.globalAlpha = 1;
+            }
+        }
+        
         c.restore();
         
+        //Draw sliderticks
+        var sliderTickCount = floor((duration / beatLength)/sliderTickRate);
+        //console.log(sliderTickCount);
+        
+        
+        //Draw sliderball along the path
+        if (current >= timing && current < timing + duration * slides) {
+            var sliderBall = (current-(timing+duration*slidesDone))*(clength/duration);
+            
+            var sliderBallX; var sliderBallY;
+            if (slidesDone%2 === 0){
+                sliderBallX = ((end[0]-start[0])/clength)*sliderBall + start[0];
+                sliderBallY = ((end[1]-start[1])/clength)*sliderBall + start[1];
+            } else {
+                sliderBallX = ((start[0]-end[0])/clength)*sliderBall + end[0];
+                sliderBallY = ((start[1]-end[1])/clength)*sliderBall + end[1];
+            }
+            
+            c.drawImage(assets['sliderBall'], sliderBallX - sliderBallsizeX/2, sliderBallY-sliderBallsizeX/2,sliderBallsizeX, sliderBallsizeX);
+        }
+
+    if (current < timing){
+        drawHitCircle(x, y, combo, opacity, current, timing);
+    }
         
     }
-    drawHitCircle(x, y, combo, opacity, current, timing);
+
+    
 }
 
 function drawHitCircle(x, y, combo, opacity, current, timing){
-    var posX = renderX(x) - mapCSr / 2;
-    var posY = renderY(y) - mapCSr / 2;
+    var tempCSr = mapCSr;
+    if (current > timing + mapOD5){ //TODO for judgement
+         tempCSr = mapCSr * (4/3-opacity/3);
+    } 
+    
+    var posX = renderX(x) - tempCSr / 2;
+    var posY = renderY(y) - tempCSr / 2;
     c.globalAlpha = opacity;
     //console.log(opacity);
     if (timing - current > 0){
         var AC = linearScale(current, timing - mapARpreempt, mapCSr*ACSZ, timing, mapCSr);
         c.drawImage(assets['approachCircle'], renderX(x) -  AC / 2, renderY(y) - AC / 2, AC, AC);
     }
-    c.drawImage(assets['hitCircle'], posX, posY, mapCSr, mapCSr);
-    c.drawImage(assets['hitCircleOverlay'], posX, posY, mapCSr, mapCSr);
+    c.drawImage(assets['hitCircle'], posX, posY, tempCSr, tempCSr);
+    c.drawImage(assets['hitCircleOverlay'], posX, posY, tempCSr, tempCSr);
     if (combo < 10) {
         c.drawImage(assets['default'+combo], renderX(x) - combosizeX/2, renderY(y)-combosizeY/2, combosizeX, combosizeY);
     } else {
@@ -303,11 +386,15 @@ function render() {
                 }
             }
             if ((mapIn[i][3]&1) !== 0) { // Hitobject
-                if (adjtime > mapIn[i][2]+25){mapIn.splice(i,1); if(i>=mapIn.length){break;} continue;}
+                if (adjtime > mapIn[i][2]+mapOD5+FADEOUTTIME){mapIn.splice(i,1); if(i>=mapIn.length){break;} continue;}
                 var opacity = 1;
                 if (adjtime < (mapIn[i][2] - mapARfull)){
                     opacity = adjtime/(mapARpreempt-mapARfull)+(mapIn[i][2]-mapARpreempt)/(mapARfull-mapARpreempt);
-                } else {
+                } else if (adjtime > (mapIn[i][2]+mapOD5)){ //See below for T
+                    //opacity = 0.1;
+                    opacity = linearScale(adjtime, mapIn[i][2]+mapOD5, 1, mapIn[i][2]+mapOD5+FADEOUTTIME, 0);
+                    
+                }else {
                     opacity = 1;
                 }
                 drawHitCircle(mapIn[i][0],mapIn[i][1], mapIn[i].slice(-1)[0], opacity, adjtime, mapIn[i][2]);
@@ -316,22 +403,26 @@ function render() {
                 var duration = 0;
                 if (timingIdx === timingIdxInherited) { //Not inherited
                     duration = mapIn[i][7] / (mapSliderMul * 100) * timingData[timingIdx][1];
-                } else {
+                } else { 
                     duration = mapIn[i][7] / (mapSliderMul * (-timingData[timingIdxInherited][1])) * timingData[timingIdx][1];
-                }
+                } 
                 
-                if (adjtime > mapIn[i][2] + duration){mapIn.splice(i,1); if(i>=mapIn.length){break;} continue;}
+                if (adjtime > mapIn[i][2] + duration * mapIn[i][6] + FADEOUTTIME){mapIn.splice(i,1); if(i>=mapIn.length){break;} continue;}
                 var opacity = 1;
                 if (adjtime < (mapIn[i][2] - mapARfull)){
                     opacity = adjtime/(mapARpreempt-mapARfull)+(mapIn[i][2]-mapARpreempt)/(mapARfull-mapARpreempt);
+                } else if (adjtime > (mapIn[i][2]+mapOD5)) { //TODO this should trigger once the player clicks or misses the object
+                    //opacity = 0.1;
+                    opacity = linearScale(adjtime, mapIn[i][2]+duration * mapIn[i][6], 1, mapIn[i][2]+ duration * mapIn[i][6]+FADEOUTTIME, 0);
                 } else {
                     opacity = 1;
                 }
+                
                 //var [curveType, curvePoints] = mapIn[i][5].split("|");
                 var curvePoints = mapIn[i][5].split('|');
                 curveType = curvePoints.splice(0,1)[0]
                 curvePoints = curvePoints.map(x=>x.split(":").map(y=>Number(y)));
-                drawSlider(mapIn[i][0],mapIn[i][1], mapIn[i].slice(-1)[0], opacity, adjtime, mapIn[i][2], curveType, curvePoints, Number(mapIn[i][6]), Number(mapIn[i][7]));
+                drawSlider(mapIn[i][0],mapIn[i][1], mapIn[i].slice(-1)[0], opacity, adjtime, mapIn[i][2], curveType, curvePoints, Number(mapIn[i][6]), Number(mapIn[i][7]), duration, timingData[timingIdx][1]);
             }
             i += 1;
             if (i >= mapIn.length){
