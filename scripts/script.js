@@ -1,6 +1,9 @@
 var abs = Math.abs;
 var pow = Math.pow;
+var cos = Math.cos;
+var sin = Math.sin;
 var arctan = Math.atan;
+var atan2 = Math.atan2;
 var floor = Math.floor;
 var ceil = Math.ceil;
 var pi = Math.PI;
@@ -187,7 +190,7 @@ function drawSlider(x, y, combo, opacity, current, timing, curveType, curvePoint
         slidesDone = floor((current - timing) / duration);
     }
     
-    
+    c.globalAlpha = opacity;
     if (curveType === 'L'){
         c.beginPath();
         var start = [renderX(x), renderY(y)];
@@ -201,10 +204,7 @@ function drawSlider(x, y, combo, opacity, current, timing, curveType, curvePoint
         c.lineTo(end[0], end[1]);
         c.lineCap = 'round';   
         c.lineWidth = SLIDERSZ - SLIDERBORDERSIZE;
-        //if (slides > 1) {
-        //    c.strokeStyle = 'rgba(200,100,200,0.7)'
-        //} else {
-        c.strokeStyle = 'rgba(' + assets['skinIni']['Colours']['SliderTrackOverride'] + ',' + SLIDERBODYBASEOPACITY * opacity + ')';//}
+        c.strokeStyle = 'rgb(' + assets['skinIni']['Colours']['SliderTrackOverride'] + ',' + SLIDERBODYBASEOPACITY + ')';//}
         c.stroke();
         c.closePath();
         
@@ -226,7 +226,7 @@ function drawSlider(x, y, combo, opacity, current, timing, curveType, curvePoint
         //c.moveTo(-SLIDERSZ / 2, 0);
         c.lineCap = 'butt'; 
         c.lineWidth = SLIDERBORDERSIZE;
-        c.strokeStyle = 'rgba(' + assets['skinIni']['Colours']['SliderBorder'] + ',' + opacity + ')'; //SliderTrackOverride
+        c.strokeStyle = 'rgb(' + assets['skinIni']['Colours']['SliderBorder'] + ')'; //SliderTrackOverride
         //c.strokeRect(-SLIDERSZ / 2,0,SLIDERSZ,length*playfieldScale);
         c.stroke();
         c.closePath();
@@ -244,28 +244,23 @@ function drawSlider(x, y, combo, opacity, current, timing, curveType, curvePoint
         //Draw sliderend (if any)
         //1 slide is duration long. current-timing is elapsed time. (current-timing)/duration is amount of slides gone thru.
         //therefore, amount of slides left is slides-(current-timing)/duration. But current-timing must be gt 0
+        //TODO put this above the border
         if (current < timing){
             if (slides > 1) {
-                c.globalAlpha = opacity;
                 c.drawImage(assets['reverseArrow'], - mapCSr / 2, - mapCSr / 2, mapCSr, mapCSr);
-                c.globalAlpha = 1;
             }
         } else {
             if (slides - slidesDone > 1) {
-                c.globalAlpha = opacity;
                 c.drawImage(assets['reverseArrow'], - mapCSr / 2, - mapCSr / 2, mapCSr, mapCSr);
-                c.globalAlpha = 1;
             }
-            if ((slides - slidesDone > 2)) { //TODO, I can't test this right now, but im pretty sure this will render it when it isnt supposed to be
-                c.globalAlpha = opacity;
-                c.drawImage(assets['reverseArrow'], - mapCSr / 2, - mapCSr / 2, mapCSr, mapCSr);
-                c.globalAlpha = 1;
+            if ((slides - slidesDone > 2)) { //TODO, I can't test this right now, but im pretty sure this will render it when it isnt supposed to be 
+                c.drawImage(assets['reverseArrow'], - mapCSr / 2, - mapCSr / 2, mapCSr, mapCSr); //REMEMEBER TO EDIT THIS FOR ALL SLIDERS !!
             }
         }
         
         c.restore();
         
-        //Draw sliderticks
+        //Draw sliderticks TODO
         var sliderTickCount = floor((duration / beatLength) / sliderTickRate);
         //console.log(sliderTickCount);
         
@@ -285,14 +280,107 @@ function drawSlider(x, y, combo, opacity, current, timing, curveType, curvePoint
             
             c.drawImage(assets['sliderBall'], sliderBallX - sliderBallsizeX / 2, sliderBallY - sliderBallsizeX / 2, sliderBallsizeX, sliderBallsizeX);
         }
-
+    } // End of L slider
+    
+    if (curveType === 'P'){
+        var start = [renderX(x), renderY(y)];
+        var mid = [renderX(curvePoints[0][0]), renderY(curvePoints[0][1])];
+        var end = [renderX(curvePoints[1][0]), renderY(curvePoints[1][1])];
+        
+        var arcMidpoint = [];
+        start[0] -= mid[0]; //Translate points so mid is at origin
+        start[1] -= mid[1];
+        end[0] -= mid[0];
+        end[1] -= mid[1];
+        var D = 2*(start[0]*end[1]-end[0]*start[1]);
+        var z1 = start[0]*start[0] + start[1]*start[1];
+        var z2 = end[0]*end[0]+end[1]*end[1];
+        arcMidpoint[0] = (z1 * end[1] - z2 * start[1]) / D + mid[0];
+        arcMidpoint[1] = (start[0] * z2 - end[0] * z1) / D + mid[1];
+        
+        start[0] += mid[0];
+        start[1] += mid[1];
+        end[0] += mid[0];
+        end[1] += mid[1];
+        
+        
+        var arcRadius = pow(pow(mid[0]-arcMidpoint[0],2)+pow(mid[1]-arcMidpoint[1],2),0.5);
+        //var arcStartAngle = -arctan((arcMidpoint[1]-start[1])/(arcMidpoint[0]-start[0]));
+        //var arcEndAngle = -arctan((end[1]-arcMidpoint[1])/(end[0]-arcMidpoint[0]));
+        var arcStartAngle = atan2(start[1] - arcMidpoint[1], start[0] - arcMidpoint[0]);
+        var arcEndAngle = atan2(end[1] - arcMidpoint[1], end[0] - arcMidpoint[0]);
+        var isClockwise = ((end[0] - start[0]) * (mid[1] - start[1]) - (end[1] - start[1]) * (mid[0] - start[0])) >= 0
+        var clength = abs(arcEndAngle - arcStartAngle) * arcRadius;
+        if (length > clength) {
+            arcEndAngle += (length * playfieldScale - clength) / arcRadius;
+            end = [arcMidpoint[0] + arcRadius * cos(arcEndAngle),arcMidpoint[1] + arcRadius * sin(arcEndAngle)];
+        }
+        //console.log(arcMidpoint[0], arcMidpoint[1], arcRadius, arcStartAngle, arcEndAngle)
+        
+        c.beginPath();
+        c.arc(arcMidpoint[0], arcMidpoint[1], arcRadius, arcStartAngle, arcEndAngle, isClockwise);
+        c.lineCap = 'round';   
+        //c.lineWidth = 10;
+        c.lineWidth = SLIDERSZ - SLIDERBORDERSIZE;
+        //c.strokeStyle = 'rgb(200,100,100)';
+        c.strokeStyle = 'rgb(' + assets['skinIni']['Colours']['SliderTrackOverride'] + ',' + SLIDERBODYBASEOPACITY + ')';//}
+        c.stroke();
+        c.closePath();
+        
+       
+        //TODO PRIORITY 1 !!!! !!! !!! !!! !!! fix the sliderend, it looks slanted I swear
+        c.save();
+        if (slidesDone % 2 === 0){
+            c.translate(end[0],end[1]);
+            c.rotate(arcEndAngle + pi / 2 + (isClockwise ? 0 : pi));
+        } else {
+            c.translate(start[0],start[1]);
+            c.rotate(arcStartAngle - pi / 2 + (isClockwise ? pi : 0));
+        }
+        
+        if (current < timing){
+            if (slides > 1) {
+                c.drawImage(assets['reverseArrow'], - mapCSr / 2, - mapCSr / 2, mapCSr, mapCSr);
+            }
+        } else {
+            if (slides - slidesDone > 1) {
+                c.drawImage(assets['reverseArrow'], - mapCSr / 2, - mapCSr / 2, mapCSr, mapCSr);
+            }
+            //if ((slides - slidesDone > 2)) { //TODO, I can't test this right now, but im pretty sure this will render it when it isnt supposed to be
+            //    c.drawImage(assets['reverseArrow'], end[0] - mapCSr / 2, end[1] - mapCSr / 2, mapCSr, mapCSr);
+            //}//TODO THIS WONT WORK AAAAA
+        }
+        c.restore(); 
+         
+        
+        //Now draw the slider border //This might have just been the most satisfying thing I've made it a while
+        c.beginPath();               //its so nice when the math just works out how you calculated it to
+        c.arc(arcMidpoint[0], arcMidpoint[1], arcRadius+SLIDERSZ/2, arcStartAngle, arcEndAngle, isClockwise);
+        c.arc(end[0], end[1], SLIDERSZ/2, arcEndAngle, arcEndAngle+pi,isClockwise);
+        c.arc(arcMidpoint[0], arcMidpoint[1], arcRadius-SLIDERSZ/2, arcEndAngle, arcStartAngle, !isClockwise);
+        c.arc(start[0], start[1], SLIDERSZ/2, arcStartAngle+pi, arcStartAngle,isClockwise);
+        c.lineCap = 'butt'; 
+        c.lineWidth = SLIDERBORDERSIZE;
+        c.strokeStyle = 'rgb(' + assets['skinIni']['Colours']['SliderBorder'] + ')';
+        c.stroke();
+        c.closePath();
+        
+        
+        
+        var sz = 5;
+        c.fillStyle = 'rgb(255,50,50)';
+        c.fillRect(start[0]-sz/2,start[1]-sz/2,sz,sz);
+        c.fillRect(mid[0]-sz/2,mid[1]-sz/2,sz,sz);
+        c.fillRect(end[0]-sz/2,end[1]-sz/2,sz,sz);
+        c.fillStyle = 'rgb(100,200,100)';
+        c.fillRect(arcMidpoint[0]-sz/2,arcMidpoint[1]-sz/2,sz,sz);
+        
+    } //End of P slider
+    
+    c.globalAlpha = 1;
     if (current < timing){
         drawHitCircle(x, y, combo, opacity, current, timing);
     }
-        
-    }
-
-    
 }
 
 function drawHitCircle(x, y, combo, opacity, current, timing){
