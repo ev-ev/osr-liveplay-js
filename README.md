@@ -1,4 +1,4 @@
-# osr-liveplay-js
+# osu-liveplay-js
 
 [![GitHub Pages](https://img.shields.io/badge/github%20pages-release-8A2BE2.svg)](https://ev-ev.github.io/osr-liveplay-js/displayer.html)
 
