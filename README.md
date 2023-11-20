@@ -1,6 +1,6 @@
 # osu-liveplay-js
 
-[![GitHub Pages](https://img.shields.io/badge/github%20pages-release-8A2BE2.svg)](https://ev-ev.github.io/osr-liveplay-js/displayer.html)
+[![GitHub Pages](https://img.shields.io/badge/github%20pages-release-8A2BE2.svg)](https://ev-ev.github.io/osu-liveplay-js/displayer.html)
 
 osu!liveplay is a WIP replay file player made for embedding in html using javascript to parse .osr, .osu and skin files to assemble a replay to show in realtime. The replay files can come from user uploads or stored on a database, and the song can be dynamically downloaded for the replay (not included in this project (probably..)). 
 
