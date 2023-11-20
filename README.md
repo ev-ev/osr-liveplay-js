@@ -1,4 +1,7 @@
 # osr-liveplay-js
+
+[![GitHub Pages](https://img.shields.io/badge/github%20pages-release-8A2BE2.svg)](https://ev-ev.github.io/osr-liveplay-js/displayer.html)
+
 osu!liveplay is a WIP replay file player made for embedding in html using javascript to parse .osr, .osu and skin files to assemble a replay to show in realtime. The replay files can come from user uploads or stored on a database, and the song can be dynamically downloaded for the replay (not included in this project (probably..)). 
 
 ## Using !liveplay
@@ -25,8 +28,8 @@ As I am not used to using JS to make stuff, my code may not be following best pr
 *I had to take some creative liberties with some constants to what they should be compared to in osu!stable (for example hitobject fade out time and behavior of the fadeout, they like expand somehow too). The actual values should be in the osu!lazer source but I am not good enough to read it or know where to look...
 
 ## Screenshots
-<img src="https://github.com/ev-ev/osr-liveplay-js/assets/27211692/407ecbf6-e4a5-401e-be16-a77d0285a024" width="400" height="225" />
-<img src="https://github.com/ev-ev/osr-liveplay-js/assets/27211692/00a83eb6-1528-4707-bb25-e69906d790f1" width="400" height="225" />
+<img src="https://github.com/ev-ev/osr-liveplay-js/assets/27211692/88cd84a0-1d85-4cdd-b874-1eb3eaf3d47e" width="400" height="225" />
+<img src="https://github.com/ev-ev/osr-liveplay-js/assets/27211692/3c6110fb-7715-4cfe-ab14-51026cca6670" width="400" height="225" />
 
 
 ## Credits and Licence
