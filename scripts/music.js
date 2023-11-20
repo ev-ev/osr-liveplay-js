@@ -1,4 +1,4 @@
-var trackPath = "";
+var trackPath = '';
 var audioContext;
 var audioBuffers = {};
 
@@ -18,9 +18,9 @@ function playDeferred(buffer, time){
 }
 
 function loadSong(src) {return new Promise(function(resolve, reject) {
-    fetch( src ).then(response=>{
+    fetch(src).then(response=>{
     response.blob().then(blob=>{
-    readFile( blob ).then(result => {
+    readFile(blob).then(result => {
     audioContext.decodeAudioData(result).then(buf=>{
     audioBuffers[src] = buf;
     //playImmediately(buf);
@@ -29,4 +29,4 @@ function loadSong(src) {return new Promise(function(resolve, reject) {
     });
     });
     });
-})};
+});}
