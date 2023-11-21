@@ -24,6 +24,7 @@ var displayText = '';
 var paused = false;
 var pauseTime = 0;
 
+
 var replayData = []; //TimeMS x y keypressed
 var replayIdx = 0;
 var replayStartTime = 0;
@@ -244,7 +245,6 @@ function drawSlider(x, y, combo, opacity, current, timing, curveType, curvePoint
         //Draw sliderend (if any)
         //1 slide is duration long. current-timing is elapsed time. (current-timing)/duration is amount of slides gone thru.
         //therefore, amount of slides left is slides-(current-timing)/duration. But current-timing must be gt 0
-        //TODO put this above the border
         if (current < timing){
             if (slides > 1) {
                 c.drawImage(assets['reverseArrow'], - mapCSr / 2, - mapCSr / 2, mapCSr, mapCSr);
@@ -325,17 +325,29 @@ function drawSlider(x, y, combo, opacity, current, timing, curveType, curvePoint
         //c.strokeStyle = 'rgb(200,100,100)';
         c.strokeStyle = 'rgb(' + assets['skinIni']['Colours']['SliderTrackOverride'] + ',' + SLIDERBODYBASEOPACITY + ')';//}
         c.stroke();
+        c.closePath();  
+        
+        //Now draw the slider border //This might have just been the most satisfying thing I've made it a while
+        c.beginPath();               //its so nice when the math just works out how you calculated it to
+        c.arc(arcMidpoint[0], arcMidpoint[1], arcRadius+SLIDERSZ/2, arcStartAngle, arcEndAngle, isClockwise);
+        c.arc(end[0], end[1], SLIDERSZ/2, arcEndAngle, arcEndAngle+pi,isClockwise);
+        c.arc(arcMidpoint[0], arcMidpoint[1], arcRadius-SLIDERSZ/2, arcEndAngle, arcStartAngle, !isClockwise);
+        c.arc(start[0], start[1], SLIDERSZ/2, arcStartAngle+pi, arcStartAngle,isClockwise);
+        c.lineCap = 'butt'; 
+        c.lineWidth = SLIDERBORDERSIZE;
+        c.strokeStyle = 'rgb(' + assets['skinIni']['Colours']['SliderBorder'] + ')';
+        c.stroke();
         c.closePath();
         
-       
         //TODO PRIORITY 1 !!!! !!! !!! !!! !!! fix the sliderend, it looks slanted I swear
         c.save();
         if (slidesDone % 2 === 0){
             c.translate(end[0],end[1]);
-            c.rotate(arcEndAngle + pi / 2 + (isClockwise ? 0 : pi));
+            //c.rotate(arcEndAngle + pi / 2 + (isClockwise ? 0 : pi)); //This was my first theory on how to rotate the slider
+            c.rotate(arcEndAngle + pi / 2 + (isClockwise ? 0.1 : pi-0.1));
         } else {
-            c.translate(start[0],start[1]);
-            c.rotate(arcStartAngle - pi / 2 + (isClockwise ? pi : 0));
+            c.translate(start[0],start[1]); //TODO cannot test this
+            c.rotate(arcStartAngle - pi / 2 + (isClockwise ? pi-0.1 : 0.1));
         }
         
         if (current < timing){
@@ -351,22 +363,30 @@ function drawSlider(x, y, combo, opacity, current, timing, curveType, curvePoint
             //}//TODO THIS WONT WORK AAAAA
         }
         c.restore(); 
-         
         
-        //Now draw the slider border //This might have just been the most satisfying thing I've made it a while
-        c.beginPath();               //its so nice when the math just works out how you calculated it to
-        c.arc(arcMidpoint[0], arcMidpoint[1], arcRadius+SLIDERSZ/2, arcStartAngle, arcEndAngle, isClockwise);
-        c.arc(end[0], end[1], SLIDERSZ/2, arcEndAngle, arcEndAngle+pi,isClockwise);
-        c.arc(arcMidpoint[0], arcMidpoint[1], arcRadius-SLIDERSZ/2, arcEndAngle, arcStartAngle, !isClockwise);
-        c.arc(start[0], start[1], SLIDERSZ/2, arcStartAngle+pi, arcStartAngle,isClockwise);
-        c.lineCap = 'butt'; 
-        c.lineWidth = SLIDERBORDERSIZE;
-        c.strokeStyle = 'rgb(' + assets['skinIni']['Colours']['SliderBorder'] + ')';
-        c.stroke();
-        c.closePath();
+        //Draw sliderball along the path
+        if (current >= timing && current < timing + duration * slides) {
+            var angleDt = abs(arcStartAngle-arcEndAngle);
+            //This took way too long and I don't even know why it works or if it there is possible bugged behavior
+            //If anyone can explain what is happening here or the best practice I would be super thankful
+            if ((isClockwise && (arcStartAngle<arcEndAngle)) || (!isClockwise && (arcStartAngle>arcEndAngle))) {angleDt = 2*pi - angleDt;}
+            var sliderBall = (isClockwise?-1:1)*(current - (timing + duration * slidesDone)) * (angleDt / duration);
+            
+            //console.log(combo, sliderBall);
+
+            var sliderBallX; var sliderBallY;
+            if (slidesDone % 2 === 0){
+                sliderBallX = arcMidpoint[0] + arcRadius * cos(arcStartAngle + sliderBall);
+                sliderBallY = arcMidpoint[1] + arcRadius * sin(arcStartAngle + sliderBall);
+            } else {
+                sliderBallX = arcMidpoint[0] + arcRadius * cos(arcEndAngle - sliderBall);
+                sliderBallY = arcMidpoint[1] + arcRadius * sin(arcEndAngle - sliderBall);
+            }
+            
+            c.drawImage(assets['sliderBall'], sliderBallX - sliderBallsizeX / 2, sliderBallY - sliderBallsizeX / 2, sliderBallsizeX, sliderBallsizeX);
+        }
         
-        
-        
+        /* //Debug anchor points drawing
         var sz = 5;
         c.fillStyle = 'rgb(255,50,50)';
         c.fillRect(start[0]-sz/2,start[1]-sz/2,sz,sz);
@@ -374,6 +394,7 @@ function drawSlider(x, y, combo, opacity, current, timing, curveType, curvePoint
         c.fillRect(end[0]-sz/2,end[1]-sz/2,sz,sz);
         c.fillStyle = 'rgb(100,200,100)';
         c.fillRect(arcMidpoint[0]-sz/2,arcMidpoint[1]-sz/2,sz,sz);
+        */
         
     } //End of P slider
     
@@ -414,17 +435,11 @@ function drawHitCircle(x, y, combo, opacity, current, timing){
     c.globalAlpha = 1;
 }
 
-function pause(){
-    if (! paused){
-        paused = true;
-        pauseTime = Date.now();
-    } else {
-        replayStartTime += Date.now() - pauseTime;
-        paused = false;
-    }
-
+var speed = 1;
+function changeSpeed(newSpeed){
+    replayStartTime += Date.now()*(newSpeed-speed);
+    speed = newSpeed;
 }
-
 function render() {
     if (assets['backgroundImage']){c.drawImage(assets['backgroundImage'], 0, 0, w, h);}
     c.fillStyle = 'rgba(17, 17, 17, 0.7)';
@@ -433,7 +448,8 @@ function render() {
     c.fillText(displayText, 10, 10);
     
     if (! paused){
-        ctime = Date.now() - replayStartTime;
+        ctime = Date.now()*speed - replayStartTime;
+        //console.log(ctime);
     }
     adjtime = ctime - songStart;
     
