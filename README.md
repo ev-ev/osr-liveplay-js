@@ -23,7 +23,9 @@ As I am not used to using JS to make stuff, my code may not be following best pr
 - Showing hitobjects! (fun)
   - Hitcircle (with the fadeout and explosion animation*)
   - Linear sliders (Sliderhead, body, border, reverse arrow and ball only)
+  - Perfect circle sliders (Same as linear but the reverse arrow is not complete)
   - Fade in and approach circles based on AR
+- Secret console commands (pause() and changeSpeed(), but using both at once is bugged right now...)
 
 *I had to take some creative liberties with some constants to what they should be compared to in osu!stable (for example hitobject fade out time and behavior of the fadeout, they like expand somehow too). The actual values should be in the osu!lazer source but I am not good enough to read it or know where to look...
 
